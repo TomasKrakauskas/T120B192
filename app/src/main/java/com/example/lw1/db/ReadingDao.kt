@@ -22,4 +22,10 @@ interface ReadingDao {
 
     @Upsert
     suspend fun insertColumn(readings: List<Reading>)
+
+    @Query("DELETE FROM readings")
+    suspend fun deleteAll()
+
+    @Query("DELETE FROM readings WHERE x = :x AND y = :y")
+    suspend fun deleteOne(x: Int, y: Int)
 }

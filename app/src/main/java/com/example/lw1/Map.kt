@@ -1,9 +1,14 @@
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -16,6 +21,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -24,6 +30,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.lw1.api.Api
 import com.example.lw1.api.getReadings
@@ -36,6 +43,8 @@ import kotlinx.coroutines.launch
 fun Map(readingDao: ReadingDao, api: Api) {
     val scope = rememberCoroutineScope()
 
+    var hasFinished by remember { mutableStateOf(false) }
+
     val readings by readingDao.getAll().collectAsState(initial = emptyList())
 
     val cells = remember(readings) { readings.map { r -> Coordinates(r.x, r.y) } }
@@ -47,33 +56,48 @@ fun Map(readingDao: ReadingDao, api: Api) {
         val yMin = readings.minOfOrNull { it.y } ?: 0
         val yMax = readings.maxOfOrNull { it.y } ?: 0
         arrayOf(xMin, xMax, yMin, yMax)
-    }.map { it as Int }
+    }.map { it }
 
-    if( readings.isEmpty()) {
+    if( !hasFinished ) {
         var loading by remember { mutableStateOf(false) }
         var error by remember { mutableStateOf<String?>(null) }
 
-        Column {
-            Text("No readings loaded. Please update readings")
-            Button(
-                enabled = !loading,
-                onClick = {
-                    scope.launch {
-                        loading = true
-                        error = null
-                        try {
-                            getReadings(readingDao, api)
-                        } catch (t: Throwable) {
-                            error = t.localizedMessage ?: t.toString()
-                        } finally {
-                            loading = false
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 16.dp),
+        ) {
+            if(readings.isEmpty())
+                Text("No readings loaded. Please fetch readings", modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
+            else
+                Text("Current Readings: ${readings.size}", modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
+
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                Button(
+                    enabled = !loading,
+                    onClick = {
+                        scope.launch {
+                            loading = true
+                            error = null
+                            try {
+                                getReadings(readingDao, api)
+                            } catch (t: Throwable) {
+                                error = t.localizedMessage ?: t.toString()
+                            } finally {
+                                loading = false
+                                hasFinished = true
+                            }
                         }
                     }
-                }
-            ) { Text(if (loading) "Updating..." else "Update") }
+                ) { Text(if (loading) "Updating..." else "Fetch") }
+            }
 
             if (loading) {
-                CircularProgressIndicator()
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Spacer(Modifier.height(16.dp))
+                    CircularProgressIndicator(modifier = Modifier.size(108.dp), strokeWidth= 16.dp)
+                }
             }
             error?.let { Text("Error: $it") }
 
@@ -118,8 +142,8 @@ fun MapCanvas(
 
     Box(Modifier.fillMaxSize().verticalScroll(vScroll)) {
         Canvas(Modifier.padding(8.dp).fillMaxSize().height(contentHeightDp)) {
-            val linesWidthPx = 1.dp.toPx();
-            val lineColor = Color.DarkGray;
+            val linesWidthPx = 1.dp.toPx()
+            val lineColor = Color.DarkGray
 
             // background
             drawRect(
@@ -131,7 +155,7 @@ fun MapCanvas(
 
             // draw vertical lines & x labels
             repeat(cols) { i ->
-                val x = i + xMin;
+                val x = i + xMin
                 val startX = cellPx * (i + 1)
                 drawLine(
                     lineColor,
@@ -148,7 +172,7 @@ fun MapCanvas(
             }
             // draw horizontal lines & y labels
             repeat(rows) { i ->
-                val y = i + yMin;
+                val y = i + yMin
                 val startY = cellPx * (i + 1)
                 drawLine(
                     lineColor,
@@ -165,8 +189,8 @@ fun MapCanvas(
             }
 
             for (cell in activeCells) {
-                val x = cell.x - xMin;
-                val y = cell.y - yMin;
+                val x = cell.x - xMin
+                val y = cell.y - yMin
 
                 drawRect(
                     color = Color.Green,

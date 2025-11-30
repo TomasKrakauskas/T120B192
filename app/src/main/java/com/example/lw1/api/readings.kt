@@ -7,7 +7,11 @@ suspend fun getReadings(readingDao: ReadingDao, api: Api) {
     val size = api.getSize()
     for (x in size.minX..size.maxX) {
         val rows = api.getColumn(x)
-        val readings = rows.map { r -> Reading(x = r.x, y = r.y, readings = r.readings) }
-        readingDao.insertColumn(readings)
+        val readings = rows
+            .map { r -> Reading(x = r.x, y = r.y, readings = r.readings) }
+            // Added specifically for x - 2 y - 33
+            .filter { it.readings.isNotEmpty() }
+
+        if(readings.isNotEmpty()) readingDao.insertColumn(readings)
     }
 }
